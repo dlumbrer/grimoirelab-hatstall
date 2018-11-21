@@ -12,7 +12,7 @@ from sortinghat.db.database import Database
 from sortinghat.db.model import UniqueIdentity
 from sortinghat.db.model import Identity
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template import loader
 from django.utils.datastructures import MultiValueDictKeyError
@@ -245,6 +245,12 @@ def organizations(request):
         except sortinghat.exceptions.AlreadyExistsError as error:
             err = error
     orgs = sortinghat.api.registry(db)
+    format = request.GET.get('format')
+    if format == "json":
+        orgs_json = []
+        for org in orgs:
+            orgs_json.append(org.to_dict())
+        return JsonResponse(orgs_json, safe=False)
     context = {
         "orgs": orgs, "err": err
     }
@@ -337,6 +343,9 @@ def render_profiles(db, request, err=None):
             table_length = int(request.POST.get('table_length'))
             current_page = 1
     elif request.method == 'GET':
+        format = request.GET.get('format')
+        if format == "json":
+            return return_identities_json(request)
         shsearch = ""
         current_page = 1
         table_length = 10
@@ -372,6 +381,31 @@ def render_profiles(db, request, err=None):
     # return unique_identities
     # return render(request, 'profiles.html', {})
     # return render_template('profiles.html', uids=unique_identities, err=err)
+
+
+def return_identities_json(request):
+    sh_db = sortinghat_db_conn()
+    shsearch_json = request.GET.get('shsearch')
+    if not shsearch_json:
+        return JsonResponse({'error': 'Needed "shsearch" param in query string in order to filter identities'})
+    try:
+        # Code from api of sortinghat
+        uidentities = sortinghat.api.search_unique_identities(sh_db, shsearch_json)
+        unique_identities = []
+        for uid in uidentities:
+            uid_dict = uid.to_dict()
+            uid_dict.update({"last_modified": uid.last_modified})
+            # Add enrollments to a new property 'roles'
+            enrollments = sortinghat.api.enrollments(sh_db, uid.uuid)
+            uid.roles = enrollments
+            enrollments = []
+            for enrollment in uid.roles:
+                enrollments.append(enrollment.organization.name)
+            uid_dict['enrollments'] = enrollments
+            unique_identities.append(uid_dict)
+        return JsonResponse(unique_identities, safe=False)
+    except sortinghat.exceptions.NotFoundError as error:
+        return error
 
 
 def render_profile(db, profile_uuid, request, err=None):
