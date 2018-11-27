@@ -1,4 +1,5 @@
 import configparser
+import base64
 import datetime
 import math
 import os
@@ -12,6 +13,8 @@ from sortinghat.db.database import Database
 from sortinghat.db.model import UniqueIdentity
 from sortinghat.db.model import Identity
 
+from django.contrib.auth import authenticate
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template import loader
@@ -101,17 +104,35 @@ def index(request):
     return redirect('identities list')
 
 
-@login_required
+def auth_query_string(request):
+    uname = request.GET.get('username')
+    passwd = request.GET.get('password')
+    if uname and passwd:
+            user = authenticate(username=uname, password=passwd)
+            if user is not None and user.is_active:
+                request.user = user
+                return True
+
+    return False
+
+
 def list(request):
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     sh_db = sortinghat_db_conn()
     return HttpResponse(render_profiles(sh_db, request))
 
 
-@login_required
 def identity(request, identity_id):
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     sh_db = sortinghat_db_conn()
@@ -121,7 +142,6 @@ def identity(request, identity_id):
     return HttpResponse(render_profile(sh_db, identity_id, request, err))
 
 
-@login_required
 def update_enrollment(request, identity_id, organization):
     """
     Update profile enrollment dates
@@ -129,6 +149,10 @@ def update_enrollment(request, identity_id, organization):
     and creates a new one (base on the new dates)
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     if request.method != 'POST':
@@ -143,12 +167,15 @@ def update_enrollment(request, identity_id, organization):
     return redirect('/identities/hatstall/' + identity_id)
 
 
-@login_required
 def unenroll_profile(request, identity_id, organization_info, enrollment_start_date, enrollment_end_date):
     """
     Un-enroll a profile uuid from an organization
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     if request.method == 'POST':
@@ -160,12 +187,15 @@ def unenroll_profile(request, identity_id, organization_info, enrollment_start_d
     return redirect('/identities/hatstall/' + identity_id)
 
 
-@login_required
 def enroll_to_profile(request, identity_id, organization):
     """
     Enroll a profile uuid into an organization
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     if request.method == 'POST':
@@ -179,7 +209,6 @@ def enroll_to_profile(request, identity_id, organization):
     return redirect('/identities/hatstall/' + identity_id)
 
 
-@login_required
 def merge_profiles(request):
     """
     Merge several profiles from the list of profiles
@@ -187,18 +216,24 @@ def merge_profiles(request):
     :param request: HTTP requests
     :return: None
     """
-
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if request.method == 'POST':
         err = merge(request.POST.getlist('uuid'))
     return redirect('identities list')
 
 
-@login_required
 def merge_to_profile(request, identity_id):
     """
     Merge a list of unique profiles to the profile
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     if request.method != 'POST':
@@ -209,12 +244,15 @@ def merge_to_profile(request, identity_id):
     return redirect('/identities/hatstall/' + identity_id)
 
 
-@login_required
 def unmerge(request, profile_uuid, identity_id):
     """
     Unmerge a given identity from a unique identity, creating a new unique identity
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     if request.method != 'GET':
@@ -230,12 +268,15 @@ def unmerge(request, profile_uuid, identity_id):
     return redirect('/identities/hatstall/' + profile_uuid)
 
 
-@login_required
 def organizations(request):
     """
     Render organizations page
     """
     err = None
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if not Conf.check_conf():
         return redirect('shdb')
     db = sortinghat_db_conn()
@@ -258,12 +299,14 @@ def organizations(request):
     return HttpResponse(template.render(context, request))
 
 
-@login_required
 def get_shdb_params(request, err=None):
     """
     Get the params to configure the connections to SortingHat database
     """
-
+    if not request.user.is_authenticated:
+        authenticated = auth_query_string(request)
+        if not authenticated:
+            return redirect('%s?next=%s' % (settings.LOGIN_URL, request.path))
     if request.method == 'POST':
         Conf.post_config(request)
 
