@@ -5,7 +5,6 @@ import math
 import os
 
 from dateutil import parser
-from django.contrib.auth.decorators import login_required
 
 import sortinghat.api
 
@@ -19,6 +18,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template import loader
 from django.utils.datastructures import MultiValueDictKeyError
+from django.views.decorators.csrf import csrf_exempt
 
 #
 # VIEWS
@@ -267,7 +267,7 @@ def unmerge(request, profile_uuid, identity_id):
     session.expunge_all()
     return redirect('/identities/hatstall/' + profile_uuid)
 
-
+@csrf_exempt
 def organizations(request):
     """
     Render organizations page
