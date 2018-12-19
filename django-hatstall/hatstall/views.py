@@ -508,6 +508,9 @@ def render_profile(db, profile_uuid, request, err=None):
                 unique_identities.append(uid_dict)
         except sortinghat.exceptions.NotFoundError as error:
             err = error
+    format = request.GET.get('format')
+    if format == "json":
+        return JsonResponse(profile_info.to_dict(), safe=False)
     context = {
         "profile": profile_info.to_dict(), "orgs": orgs, "unique_identities": unique_identities, "n_pages": n_pages,
         "current_page": current_page_profile, "shsearch": shsearch_profile, "table_length": table_length_profile,
